@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Renamer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .upload-section {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 30px;
+        }
+
+        .upload-section:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-section.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-section h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.3rem;
+        }
+
+        .upload-section p {
+            color: #666;
+            font-size: 0.95rem;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .naming-section {
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .naming-section.active {
+            display: block;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .preview-section {
+            margin-bottom: 30px;
+            display: none;
+        }
+
+        .preview-section.active {
+            display: block;
+        }
+
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .preview-item {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            background: #f9f9f9;
+            transition: all 0.3s ease;
+        }
+
+        .preview-item:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .preview-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .preview-item .old-name {
+            font-size: 0.85rem;
+            color: #999;
+            text-decoration: line-through;
+            margin-bottom: 5px;
+            word-break: break-all;
+        }
+
+        .preview-item .new-name {
+            font-size: 0.9rem;
+            color: #667eea;
+            font-weight: 600;
+            word-break: break-all;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 14px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #d0d0d0;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #0d47a1;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 AI Image Renamer</h1>
+            <p>Upload images and rename them instantly</p>
+        </div>
+
+        <div class="content">
+            <div class="upload-section" id="uploadSection">
+                <div class="upload-icon">📁</div>
+                <h3>Upload Your Images</h3>
+                <p>Click to browse or drag & drop images here<br>Supports: JPG, PNG, GIF, WebP</p>
+                <input type="file" id="fileInput" accept="image/*" multiple>
+            </div>
+
+            <div class="naming-section" id="namingSection">
+                <div class="info-box">
+                    💡 For single images, enter a custom name. For multiple images, they'll be numbered automatically (e.g., filename_01, filename_02).
+                </div>
+
+                <div class="input-group">
+                    <label for="baseName">Base Filename:</label>
+                    <input type="text" id="baseName" placeholder="Enter base filename (without extension)">
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="renameBtn">
+                        ✅ Apply Rename
+                    </button>
+                </div>
+            </div>
+
+            <div class="preview-section" id="previewSection">
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="imageCount">0</div>
+                        <div class="stat-label">Images</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalSize">0 MB</div>
+                        <div class="stat-label">Total Size</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 10px; color: #333;">Preview:</h3>
+                <div class="preview-grid" id="previewGrid"></div>
+
+                <div class="button-group">
+                    <button class="btn btn-primary" id="downloadBtn">
+                        📥 Download as ZIP
+                    </button>
+                    <button class="btn btn-secondary" id="resetBtn">
+                        🔄 Start Over
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let uploadedFiles = [];
+        let renamedFiles = [];
+
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const namingSection = document.getElementById('namingSection');
+        const previewSection = document.getElementById('previewSection');
+        const baseNameInput = document.getElementById('baseName');
+        const renameBtn = document.getElementById('renameBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const previewGrid = document.getElementById('previewGrid');
+        const imageCountEl = document.getElementById('imageCount');
+        const totalSizeEl = document.getElementById('totalSize');
+
+        // Upload section click
+        uploadSection.addEventListener('click', () => fileInput.click());
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+            handleFiles(files);
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            handleFiles(files);
+        });
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+            
+            uploadedFiles = files;
+            namingSection.classList.add('active');
+            
+            // Auto-suggest base name from first file
+            if (files.length === 1) {
+                const baseName = files[0].name.replace(/\.[^/.]+$/, '');
+                baseNameInput.value = baseName;
+            } else {
+                baseNameInput.value = 'image';
+            }
+
+            updateStats();
+        }
+
+        function updateStats() {
+            imageCountEl.textContent = uploadedFiles.length;
+            const totalBytes = uploadedFiles.reduce((sum, file) => sum + file.size, 0);
+            totalSizeEl.textContent = (totalBytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // Rename files
+        renameBtn.addEventListener('click', async () => {
+            const baseName = baseNameInput.value.trim() || 'image';
+            renamedFiles = [];
+
+            for (let i = 0; i < uploadedFiles.length; i++) {
+                const file = uploadedFiles[i];
+                const extension = file.name.split('.').pop();
+                let newName;
+
+                if (uploadedFiles.length === 1) {
+                    newName = `${baseName}.${extension}`;
+                } else {
+                    const number = String(i + 1).padStart(2, '0');
+                    newName = `${baseName}_${number}.${extension}`;
+                }
+
+                // Create a new File object with the new name (preserves quality)
+                const renamedFile = new File([file], newName, { type: file.type });
+                renamedFiles.push({
+                    file: renamedFile,
+                    oldName: file.name,
+                    newName: newName,
+                    url: URL.createObjectURL(file)
+                });
+            }
+
+            displayPreview();
+            previewSection.classList.add('active');
+        });
+
+        function displayPreview() {
+            previewGrid.innerHTML = '';
+
+            renamedFiles.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'preview-item';
+                div.innerHTML = `
+                    <img src="${item.url}" alt="${item.newName}">
+                    <div class="old-name">${item.oldName}</div>
+                    <div class="new-name">${item.newName}</div>
+                `;
+                previewGrid.appendChild(div);
+            });
+        }
+
+        // Download as ZIP
+        downloadBtn.addEventListener('click', async () => {
+            const originalText = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '<span class="loading">⚙️</span> Creating ZIP...';
+            downloadBtn.disabled = true;
+
+            const zip = new JSZip();
+
+            // Add all renamed files to ZIP
+            for (const item of renamedFiles) {
+                zip.file(item.newName, item.file);
+            }
+
+            // Generate ZIP
+            const blob = await zip.generateAsync({ type: 'blob' });
+            
+            // Download
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'renamed_images.zip';
+            a.click();
+            URL.revokeObjectURL(url);
+
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+        });
+
+        // Reset
+        resetBtn.addEventListener('click', () => {
+            uploadedFiles = [];
+            renamedFiles = [];
+            fileInput.value = '';
+            baseNameInput.value = '';
+            namingSection.classList.remove('active');
+            previewSection.classList.remove('active');
+            previewGrid.innerHTML = '';
+            
+            // Clean up URLs
+            renamedFiles.forEach(item => URL.revokeObjectURL(item.url));
+        });
+    </script>
+</body>
+</html>
